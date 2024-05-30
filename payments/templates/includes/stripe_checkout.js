@@ -41,7 +41,8 @@ function setOutcome(result) {
 				"data": JSON.stringify({{ frappe.form_dict|json }}),
 				"reference_doctype": "{{ reference_doctype }}",
 				"reference_docname": "{{ reference_docname }}",
-				"save_payment_method": save_payment_method
+				"save_payment_method": save_payment_method ? "OK" : "NOT",
+				"result_stripe": JSON.stringify(result)
 			},
 			callback: function(r) {
 				if (r.message.status == "Completed") {
@@ -106,7 +107,7 @@ frappe.ready(function() {
 			callback: function(r) {
 				console.log(r)
 				frappe.show_alert({
-					message: __("Revisa tu correo electrónico para completar el registro."),
+					message: __("Revisa tu correo electrónico para completar el proceso."),
 					indicator: 'green'
 				})
 			}

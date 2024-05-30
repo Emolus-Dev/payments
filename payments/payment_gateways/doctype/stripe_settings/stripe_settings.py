@@ -1,284 +1,356 @@
 # Copyright (c) 2017, Frappe Technologies and contributors
 # License: MIT. See LICENSE
 
+import json
+from typing import Any
 from urllib.parse import urlencode
 
 import frappe
+import stripe
 from frappe import _
 from frappe.integrations.utils import create_request_log, make_get_request
 from frappe.model.document import Document
-from frappe.utils import call_hook_method, cint, flt, get_url
+from frappe.utils import call_hook_method, cint, flt, get_url, validate_email_address
 
 from payments.utils import create_payment_gateway
 
 
 class StripeSettings(Document):
-	supported_currencies = [
-		"AED",
-		"ALL",
-		"ANG",
-		"ARS",
-		"AUD",
-		"AWG",
-		"BBD",
-		"BDT",
-		"BIF",
-		"BMD",
-		"BND",
-		"BOB",
-		"BRL",
-		"BSD",
-		"BWP",
-		"BZD",
-		"CAD",
-		"CHF",
-		"CLP",
-		"CNY",
-		"COP",
-		"CRC",
-		"CVE",
-		"CZK",
-		"DJF",
-		"DKK",
-		"DOP",
-		"DZD",
-		"EGP",
-		"ETB",
-		"EUR",
-		"FJD",
-		"FKP",
-		"GBP",
-		"GIP",
-		"GMD",
-		"GNF",
-		"GTQ",
-		"GYD",
-		"HKD",
-		"HNL",
-		"HRK",
-		"HTG",
-		"HUF",
-		"IDR",
-		"ILS",
-		"INR",
-		"ISK",
-		"JMD",
-		"JPY",
-		"KES",
-		"KHR",
-		"KMF",
-		"KRW",
-		"KYD",
-		"KZT",
-		"LAK",
-		"LBP",
-		"LKR",
-		"LRD",
-		"MAD",
-		"MDL",
-		"MNT",
-		"MOP",
-		"MRO",
-		"MUR",
-		"MVR",
-		"MWK",
-		"MXN",
-		"MYR",
-		"NAD",
-		"NGN",
-		"NIO",
-		"NOK",
-		"NPR",
-		"NZD",
-		"PAB",
-		"PEN",
-		"PGK",
-		"PHP",
-		"PKR",
-		"PLN",
-		"PYG",
-		"QAR",
-		"RUB",
-		"SAR",
-		"SBD",
-		"SCR",
-		"SEK",
-		"SGD",
-		"SHP",
-		"SLL",
-		"SOS",
-		"STD",
-		"SVC",
-		"SZL",
-		"THB",
-		"TOP",
-		"TTD",
-		"TWD",
-		"TZS",
-		"UAH",
-		"UGX",
-		"USD",
-		"UYU",
-		"UZS",
-		"VND",
-		"VUV",
-		"WST",
-		"XAF",
-		"XOF",
-		"XPF",
-		"YER",
-		"ZAR",
-	]
+    supported_currencies = [
+        "AED",
+        "ALL",
+        "ANG",
+        "ARS",
+        "AUD",
+        "AWG",
+        "BBD",
+        "BDT",
+        "BIF",
+        "BMD",
+        "BND",
+        "BOB",
+        "BRL",
+        "BSD",
+        "BWP",
+        "BZD",
+        "CAD",
+        "CHF",
+        "CLP",
+        "CNY",
+        "COP",
+        "CRC",
+        "CVE",
+        "CZK",
+        "DJF",
+        "DKK",
+        "DOP",
+        "DZD",
+        "EGP",
+        "ETB",
+        "EUR",
+        "FJD",
+        "FKP",
+        "GBP",
+        "GIP",
+        "GMD",
+        "GNF",
+        "GTQ",
+        "GYD",
+        "HKD",
+        "HNL",
+        "HRK",
+        "HTG",
+        "HUF",
+        "IDR",
+        "ILS",
+        "INR",
+        "ISK",
+        "JMD",
+        "JPY",
+        "KES",
+        "KHR",
+        "KMF",
+        "KRW",
+        "KYD",
+        "KZT",
+        "LAK",
+        "LBP",
+        "LKR",
+        "LRD",
+        "MAD",
+        "MDL",
+        "MNT",
+        "MOP",
+        "MRO",
+        "MUR",
+        "MVR",
+        "MWK",
+        "MXN",
+        "MYR",
+        "NAD",
+        "NGN",
+        "NIO",
+        "NOK",
+        "NPR",
+        "NZD",
+        "PAB",
+        "PEN",
+        "PGK",
+        "PHP",
+        "PKR",
+        "PLN",
+        "PYG",
+        "QAR",
+        "RUB",
+        "SAR",
+        "SBD",
+        "SCR",
+        "SEK",
+        "SGD",
+        "SHP",
+        "SLL",
+        "SOS",
+        "STD",
+        "SVC",
+        "SZL",
+        "THB",
+        "TOP",
+        "TTD",
+        "TWD",
+        "TZS",
+        "UAH",
+        "UGX",
+        "USD",
+        "UYU",
+        "UZS",
+        "VND",
+        "VUV",
+        "WST",
+        "XAF",
+        "XOF",
+        "XPF",
+        "YER",
+        "ZAR",
+    ]
 
-	currency_wise_minimum_charge_amount = {
-		"JPY": 50,
-		"MXN": 10,
-		"DKK": 2.50,
-		"HKD": 4.00,
-		"NOK": 3.00,
-		"SEK": 3.00,
-		"USD": 0.50,
-		"AUD": 0.50,
-		"BRL": 0.50,
-		"CAD": 0.50,
-		"CHF": 0.50,
-		"EUR": 0.50,
-		"GBP": 0.30,
-		"NZD": 0.50,
-		"SGD": 0.50,
-	}
+    currency_wise_minimum_charge_amount = {
+        "JPY": 50,
+        "MXN": 10,
+        "DKK": 2.50,
+        "HKD": 4.00,
+        "NOK": 3.00,
+        "SEK": 3.00,
+        "USD": 0.50,
+        "AUD": 0.50,
+        "BRL": 0.50,
+        "CAD": 0.50,
+        "CHF": 0.50,
+        "EUR": 0.50,
+        "GBP": 0.30,
+        "NZD": 0.50,
+        "SGD": 0.50,
+    }
 
-	def on_update(self):
-		create_payment_gateway(
-			"Stripe-" + self.gateway_name,
-			settings="Stripe Settings",
-			controller=self.gateway_name,
-		)
-		call_hook_method("payment_gateway_enabled", gateway="Stripe-" + self.gateway_name)
-		if not self.flags.ignore_mandatory:
-			self.validate_stripe_credentails()
+    def on_update(self):
+        create_payment_gateway(
+            "Stripe-" + self.gateway_name,
+            settings="Stripe Settings",
+            controller=self.gateway_name,
+        )
+        call_hook_method(
+            "payment_gateway_enabled", gateway="Stripe-" + self.gateway_name
+        )
+        if not self.flags.ignore_mandatory:
+            self.validate_stripe_credentails()
 
-	def validate_stripe_credentails(self):
-		if self.publishable_key and self.secret_key:
-			header = {
-				"Authorization": "Bearer {}".format(
-					self.get_password(fieldname="secret_key", raise_exception=False)
-				)
-			}
-			try:
-				make_get_request(url="https://api.stripe.com/v1/charges", headers=header)
-			except Exception:
-				frappe.throw(_("Seems Publishable Key or Secret Key is wrong !!!"))
+    def validate_stripe_credentails(self):
+        if self.publishable_key and self.secret_key:
+            header = {
+                "Authorization": "Bearer {}".format(
+                    self.get_password(fieldname="secret_key", raise_exception=False)
+                )
+            }
+            try:
+                make_get_request(
+                    url="https://api.stripe.com/v1/charges", headers=header
+                )
+            except Exception:
+                frappe.throw(_("Seems Publishable Key or Secret Key is wrong !!!"))
 
-	def validate_transaction_currency(self, currency):
-		if currency not in self.supported_currencies:
-			frappe.throw(
-				_(
-					"Please select another payment method. Stripe does not support transactions in currency '{0}'"
-				).format(currency)
-			)
+    def validate_transaction_currency(self, currency):
+        if currency not in self.supported_currencies:
+            frappe.throw(
+                _(
+                    "Please select another payment method. Stripe does not support transactions in currency '{0}'"
+                ).format(currency)
+            )
 
-	def validate_minimum_transaction_amount(self, currency, amount):
-		if currency in self.currency_wise_minimum_charge_amount:
-			if flt(amount) < self.currency_wise_minimum_charge_amount.get(currency, 0.0):
-				frappe.throw(
-					_("For currency {0}, the minimum transaction amount should be {1}").format(
-						currency, self.currency_wise_minimum_charge_amount.get(currency, 0.0)
-					)
-				)
+    def validate_minimum_transaction_amount(self, currency, amount):
+        if currency in self.currency_wise_minimum_charge_amount:
+            if flt(amount) < self.currency_wise_minimum_charge_amount.get(
+                currency, 0.0
+            ):
+                frappe.throw(
+                    _(
+                        "For currency {0}, the minimum transaction amount should be {1}"
+                    ).format(
+                        currency,
+                        self.currency_wise_minimum_charge_amount.get(currency, 0.0),
+                    )
+                )
 
-	def get_payment_url(self, **kwargs):
-		return get_url(f"./stripe_checkout?{urlencode(kwargs)}")
+    def get_payment_url(self, **kwargs):
+        return get_url(f"./stripe_checkout?{urlencode(kwargs)}")
 
-	def create_request(self, data):
-		import stripe
+    def create_request(self, data, save_payment_method="", result_stripe={}):
+        import stripe
 
-		self.data = frappe._dict(data)
-		stripe.api_key = self.get_password(fieldname="secret_key", raise_exception=False)
-		stripe.default_http_client = stripe.http_client.RequestsClient()
+        frappe.log_error(title="Stripe checkout", message=result_stripe)
+        self.data = frappe._dict(data)
+        stripe.api_key = self.get_password(
+            fieldname="secret_key", raise_exception=False
+        )
+        stripe.default_http_client = stripe.http_client.RequestsClient()
 
-		try:
-			self.integration_request = create_request_log(self.data, service_name="Stripe")
-			return self.create_charge_on_stripe()
+        try:
+            self.integration_request = create_request_log(
+                self.data, service_name="Stripe"
+            )
+            self.save_payment_method = save_payment_method
+            self.result_stripe = result_stripe
+            return self.create_charge_on_stripe()
 
-		except Exception:
-			frappe.log_error(frappe.get_traceback())
-			return {
-				"redirect_to": frappe.redirect_to_message(
-					_("Server Error"),
-					_(
-						"It seems that there is an issue with the server's stripe configuration. In case of failure, the amount will get refunded to your account."
-					),
-				),
-				"status": 401,
-			}
+        except Exception:
+            frappe.log_error(
+                title="Error create request stripe", message=frappe.get_traceback()
+            )
+            return {
+                "redirect_to": frappe.redirect_to_message(
+                    _("Server Error"),
+                    _(
+                        "It seems that there is an issue with the server's stripe configuration. In case of failure, the amount will get refunded to your account."
+                    ),
+                ),
+                "status": 401,
+            }
 
-	def create_charge_on_stripe(self):
-		import stripe
+    def create_charge_on_stripe(self) -> dict[str, Any]:
+        try:
+            self.charge = stripe.Charge.create(
+                amount=cint(flt(self.data.amount) * 100),
+                currency=self.data.currency,
+                source=self.data.stripe_token_id,
+                description=self.data.description,
+                receipt_email=self.data.payer_email,
+            )
 
-		try:
-			self.charge = stripe.Charge.create(
-				amount=cint(flt(self.data.amount) * 100),
-				currency=self.data.currency,
-				source=self.data.stripe_token_id,
-				description=self.data.description,
-				receipt_email=self.data.payer_email,
-			)
+            if self.charge.captured:
+                self.integration_request.db_set(
+                    "status", "Completed", update_modified=False
+                )
 
-			if self.charge.captured == True:
-				self.integration_request.db_set("status", "Completed", update_modified=False)
-				self.flags.status_changed_to = "Completed"
+                frappe.log_error(
+                    title="data recibida 2",
+                    message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
+                )
 
-			else:
-				frappe.log_error(title=f"Stripe Payment not completed {self.data.reference_docname}", message=self.charge.failure_message)
+                if self.save_payment_method == "OK":
+                    self.attach_payment_method(self.result_stripe)
 
-		except Exception:
-			frappe.log_error(title=f"Error process payment Stripe {self.data.reference_docname}", message=frappe.get_traceback())
+                self.flags.status_changed_to = "Completed"
 
-		return self.finalize_request()
+            else:
+                frappe.log_error(
+                    title=f"Stripe Payment not completed {self.data.reference_docname}",
+                    message=self.charge.failure_message,
+                )
 
-	def finalize_request(self):
-		redirect_to = self.data.get("redirect_to") or None
-		redirect_message = self.data.get("redirect_message") or None
-		status = self.integration_request.status
+        except Exception:
+            frappe.log_error(
+                title=f"Error process payment Stripe {self.data.reference_docname}",
+                message=frappe.get_traceback(),
+            )
 
-		if self.flags.status_changed_to == "Completed":
-			if self.data.reference_doctype and self.data.reference_docname:
-				custom_redirect_to = None
-				try:
-					custom_redirect_to = frappe.get_doc(
-						self.data.reference_doctype, self.data.reference_docname
-					).run_method("on_payment_authorized", self.flags.status_changed_to)
-				except Exception:
-					frappe.log_error(frappe.get_traceback())
+        return self.finalize_request()
 
-				if custom_redirect_to:
-					redirect_to = custom_redirect_to
+    def finalize_request(self):
+        redirect_to = self.data.get("redirect_to") or None
+        redirect_message = self.data.get("redirect_message") or None
+        status = self.integration_request.status
 
-				redirect_url = "payment-success?doctype={}&docname={}".format(
-					self.data.reference_doctype, self.data.reference_docname
-				)
+        if self.flags.status_changed_to == "Completed":
+            if self.data.reference_doctype and self.data.reference_docname:
+                custom_redirect_to = None
+                try:
+                    custom_redirect_to = frappe.get_doc(
+                        self.data.reference_doctype, self.data.reference_docname
+                    ).run_method("on_payment_authorized", self.flags.status_changed_to)
+                except Exception:
+                    frappe.log_error(
+                        title="Error finalize request", message=frappe.get_traceback()
+                    )
 
-			if self.redirect_url:
-				redirect_url = self.redirect_url
-				redirect_to = None
-		else:
-			redirect_url = "payment-failed"
+                if custom_redirect_to:
+                    redirect_to = custom_redirect_to
 
-		if redirect_to and "?" in redirect_url:
-			redirect_url += "&" + urlencode({"redirect_to": redirect_to})
-		else:
-			redirect_url += "?" + urlencode({"redirect_to": redirect_to})
+                redirect_url = "payment-success?doctype={}&docname={}".format(
+                    self.data.reference_doctype, self.data.reference_docname
+                )
 
-		if redirect_message:
-			redirect_url += "&" + urlencode({"redirect_message": redirect_message})
+            if self.redirect_url:
+                redirect_url = self.redirect_url
+                redirect_to = None
+        else:
+            redirect_url = "payment-failed"
 
-		return {"redirect_to": redirect_url, "status": status}
+        if redirect_to and "?" in redirect_url:
+            redirect_url += "&" + urlencode({"redirect_to": redirect_to})
+        else:
+            redirect_url += "?" + urlencode({"redirect_to": redirect_to})
+
+        if redirect_message:
+            redirect_url += "&" + urlencode({"redirect_message": redirect_message})
+
+        return {"redirect_to": redirect_url, "status": status}
+
+    def attach_payment_method(self, result_stripe="{}"):
+        try:
+            if not validate_email_address(self.data.payer_email):
+                frappe.log_error(title="correo no valido", message="")
+                return
+
+            pk_customer = frappe.db.get_value(
+                "Payment Request", self.data.order_id, "party"
+            )
+
+            if not frappe.db.exists("Customer", pk_customer):
+                frappe.log_error(title=f"cliente no valido {pk_customer}", message="")
+                return
+
+            frappe.set_user(self.data.payer_email)
+
+            # Crear un cliente y forma de pago
+            frappe.get_doc(
+                {
+                    "doctype": "PayGate Card",
+                    "customer": pk_customer,
+                    "token_temp": result_stripe,
+                    "is_default": 1,
+                    "email": self.data.payer_email,
+                    "gateway": "Stripe",
+                }
+            ).insert(ignore_permissions=True)
+
+        except Exception:
+            frappe.log_error(
+                title="Stripe checkout -> attach payment method",
+                message=frappe.get_traceback(),
+            )
 
 
 def get_gateway_controller(doctype, docname):
-	reference_doc = frappe.get_doc(doctype, docname)
-	gateway_controller = frappe.db.get_value(
-		"Payment Gateway", reference_doc.payment_gateway, "gateway_controller"
-	)
-	return gateway_controller
+    reference_doc = frappe.get_doc(doctype, docname)
+    gateway_controller = frappe.db.get_value(
+        "Payment Gateway", reference_doc.payment_gateway, "gateway_controller"
+    )
+    return gateway_controller

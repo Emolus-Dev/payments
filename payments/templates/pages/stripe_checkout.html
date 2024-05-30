@@ -46,22 +46,29 @@
 
 			</div>
 
-			<label class="mb-4">
+			<label >
 				{% if frappe.session.user != "Guest" %}
-				<input type="checkbox" id="allow_save_token">
-				{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+					<input type="checkbox" id="allow_save_token">
+					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
 
 				{% else %}
-				<p>{{ _("Inicia sesión si deseas administrar tus formas de pago.") }}<br/>
-				{{ _("Si no cuentas con una contraseña de usuario haz click ") }} <b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
+					<input type="checkbox" id="allow_save_token">
+					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+
+					<br/>
+					<p >{{ _("Si no cuentas con una contraseña de usuario para iniciar sesión haz click ") }} <b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
 				{% endif %}
+
 			</label>
 
-			<button type="submit" class="submit mt-4" id="submit">{{_('Pay')}} {{amount}}</button>
+			<div style="padding-top: 30px;">
+			<button type="submit" class="submit mt-4 mb-4" id="submit">{{_('Pay')}} {{amount}}</button>
+			</div>
 			<div class="outcome text-center mt-4">
 				<div class="error" hidden>{{ _("An error occured during the payment process. Please contact us.") }}</div>
 				<div class="success" hidden>{{ _("Your payment has been successfully registered.") }}</div>
 			</div>
+			
 		</form>
 	</div>
 </div>
