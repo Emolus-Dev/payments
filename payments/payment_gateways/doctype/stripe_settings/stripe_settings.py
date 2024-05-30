@@ -236,34 +236,36 @@ class StripeSettings(Document):
 
     def create_charge_on_stripe(self) -> dict[str, Any]:
         try:
-            self.charge = stripe.Charge.create(
-                amount=cint(flt(self.data.amount) * 100),
-                currency=self.data.currency,
-                source=self.data.stripe_token_id,
-                description=self.data.description,
-                receipt_email=self.data.payer_email,
-            )
-
-            if self.charge.captured:
-                self.integration_request.db_set(
-                    "status", "Completed", update_modified=False
-                )
-
-                frappe.log_error(
-                    title="data recibida 2",
-                    message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
-                )
-
-                if self.save_payment_method == "OK":
-                    self.attach_payment_method(self.result_stripe)
-
-                self.flags.status_changed_to = "Completed"
+            # Si el usuario marco que desea guardar el metodo de pago
+            if self.save_payment_method == "OK":
+                self.attach_payment_method(self.result_stripe)
 
             else:
-                frappe.log_error(
-                    title=f"Stripe Payment not completed {self.data.reference_docname}",
-                    message=self.charge.failure_message,
+                self.charge = stripe.Charge.create(
+                    amount=cint(flt(self.data.amount) * 100),
+                    currency=self.data.currency,
+                    source=self.data.stripe_token_id,
+                    description=self.data.description,
+                    receipt_email=self.data.payer_email,
                 )
+
+                if self.charge.captured:
+                    self.integration_request.db_set(
+                        "status", "Completed", update_modified=False
+                    )
+
+                    frappe.log_error(
+                        title="data recibida 2",
+                        message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
+                    )
+
+                    self.flags.status_changed_to = "Completed"
+
+                else:
+                    frappe.log_error(
+                        title=f"Stripe Payment not completed {self.data.reference_docname}",
+                        message=self.charge.failure_message,
+                    )
 
         except Exception:
             frappe.log_error(
