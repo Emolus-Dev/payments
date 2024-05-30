@@ -27,6 +27,8 @@ var card = elements.create('card', {
 card.mount('#card-element');
 
 function setOutcome(result) {
+	let save_payment_method = $('#allow_save_token').is(':checked');
+
 	if (result.token) {
 		$('#submit').prop('disabled', true)
 		$('#submit').html(__('Processing...'))
@@ -38,18 +40,14 @@ function setOutcome(result) {
 				"stripe_token_id": result.token.id,
 				"data": JSON.stringify({{ frappe.form_dict|json }}),
 				"reference_doctype": "{{ reference_doctype }}",
-				"reference_docname": "{{ reference_docname }}"
+				"reference_docname": "{{ reference_docname }}",
+				"save_payment_method": save_payment_method
 			},
 			callback: function(r) {
 				if (r.message.status == "Completed") {
 					$('#submit').hide()
 					$('.success').show()
-
 					setTimeout(function() {
-						if (result.token && $('#allow_save_token').is(':checked') && frappe.session.user != 'Guest') {
-							redirect_save_cards();
-						}
-
 						window.location.href = r.message.redirect_to
 					}, 2000);
 
@@ -96,6 +94,8 @@ frappe.ready(function() {
 
 		console.log("{{ frappe.form_dict["order_id"] }}")
 
+		// Se envia por correo el form para que usuario resetee su contraseña,
+		// se usando los datos del payment request para no tener data incorrecta
 		frappe.call({
 			method:"pay_gate.api.send_reset_pwd_user",
 			freeze:true,
