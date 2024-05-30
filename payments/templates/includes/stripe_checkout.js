@@ -27,7 +27,6 @@ var card = elements.create('card', {
 card.mount('#card-element');
 
 function setOutcome(result) {
-
 	if (result.token) {
 		$('#submit').prop('disabled', true)
 		$('#submit').html(__('Processing...'))
@@ -45,9 +44,15 @@ function setOutcome(result) {
 				if (r.message.status == "Completed") {
 					$('#submit').hide()
 					$('.success').show()
+
 					setTimeout(function() {
+						if (result.token && $('#allow_save_token').is(':checked') && frappe.session.user != 'Guest') {
+							redirect_save_cards();
+						}
+
 						window.location.href = r.message.redirect_to
 					}, 2000);
+
 				} else {
 					$('#submit').hide()
 					$('.error').show()
@@ -80,6 +85,32 @@ frappe.ready(function() {
 			name: $('input[name=cardholder-name]').val(),
 			email: $('input[name=cardholder-email]').val()
 		}
-		stripe.createToken(card, extraDetails).then(setOutcome);
+		stripe.createToken(card, extraDetails).then(function(result) {
+			result.extraDetails = extraDetails;
+			setOutcome(result);
+		});
+	})
+
+	$('#createUser').off("click").on("click", function(e) {
+		e.preventDefault();
+
+		console.log("{{ frappe.form_dict["order_id"] }}")
+
+		frappe.call({
+			method:"pay_gate.api.send_reset_pwd_user",
+			freeze:true,
+			headers: {"X-Requested-With": "XMLHttpRequest"},
+			args: {
+				"payment_request_ref": "{{ frappe.form_dict["order_id"] }}"
+			},
+			callback: function(r) {
+				console.log(r)
+				frappe.show_alert({
+					message: __("Revisa tu correo electrónico para completar el registro."),
+					indicator: 'green'
+				})
+			}
+		});
+
 	})
 });

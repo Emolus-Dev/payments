@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-11-07 20:39:20.770055",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "status",
+  "card_brand",
+  "token",
+  "column_break_eopsy",
+  "default",
+  "card_holder",
+  "card_number",
+  "card_month",
+  "card_year"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "card_brand",
+   "fieldtype": "Select",
+   "label": "Card Brand",
+   "options": "\nAmerican Express\nMaster Card\nVisa",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Token",
+   "print_hide": 1,
+   "report_hide": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_eopsy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "default",
+   "fieldtype": "Check",
+   "label": "Default"
+  },
+  {
+   "fieldname": "card_holder",
+   "fieldtype": "Data",
+   "label": "Card Holder",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "card_number",
+   "fieldtype": "Data",
+   "label": "Card Number",
+   "length": 4,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "card_month",
+   "fieldtype": "Data",
+   "label": "Card Month",
+   "length": 4,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "card_year",
+   "fieldtype": "Data",
+   "label": "Card Year",
+   "set_only_once": 1
+  }
+ ],
+ "links": [],
+ "modified": "2023-11-07 20:42:21.995451",
+ "modified_by": "Administrator",
+ "module": "Payments",
+ "name": "Credit Cards",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Green",
+   "title": "Default"
+  },
+  {
+   "color": "Blue",
+   "title": "Active"
+  },
+  {
+   "color": "Red",
+   "title": "Expired"
+  }
+ ],
+ "title_field": "card_brand"
+}

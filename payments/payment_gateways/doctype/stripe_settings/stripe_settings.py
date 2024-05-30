@@ -217,7 +217,7 @@ class StripeSettings(Document):
 		import stripe
 
 		try:
-			charge = stripe.Charge.create(
+			self.charge = stripe.Charge.create(
 				amount=cint(flt(self.data.amount) * 100),
 				currency=self.data.currency,
 				source=self.data.stripe_token_id,
@@ -225,15 +225,15 @@ class StripeSettings(Document):
 				receipt_email=self.data.payer_email,
 			)
 
-			if charge.captured == True:
+			if self.charge.captured == True:
 				self.integration_request.db_set("status", "Completed", update_modified=False)
 				self.flags.status_changed_to = "Completed"
 
 			else:
-				frappe.log_error(charge.failure_message, "Stripe Payment not completed")
+				frappe.log_error(title=f"Stripe Payment not completed {self.data.reference_docname}", message=self.charge.failure_message)
 
 		except Exception:
-			frappe.log_error(frappe.get_traceback())
+			frappe.log_error(title=f"Error process payment Stripe {self.data.reference_docname}", message=frappe.get_traceback())
 
 		return self.finalize_request()
 

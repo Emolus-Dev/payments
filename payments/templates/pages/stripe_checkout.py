@@ -33,9 +33,16 @@ def get_context(context):
 		for key in expected_keys:
 			context[key] = frappe.form_dict[key]
 
+		validate_data_payment = verify_payment(context.reference_doctype, context.reference_docname)
+		if validate_data_payment:
+			frappe.local.response["type"] = "redirect"
+			frappe.local.response["location"] = validate_data_payment.get("redirect_to")
+			raise frappe.Redirect
+
 		gateway_controller = get_gateway_controller(
 			context.reference_doctype, context.reference_docname
 		)
+
 		context.publishable_key = get_api_key(context.reference_docname, gateway_controller)
 		context.image = get_header_image(context.reference_docname, gateway_controller)
 
@@ -98,3 +105,18 @@ def is_a_subscription(reference_doctype, reference_docname):
 	if not frappe.get_meta(reference_doctype).has_field("is_a_subscription"):
 		return False
 	return frappe.db.get_value(reference_doctype, reference_docname, "is_a_subscription")
+
+
+def verify_payment(reference_doctype, reference_docname):
+	try:
+		payment_request_data = frappe.db.get_value(reference_doctype, filters={"name": reference_docname}, fieldname=["name", "status", "pay_gate_visanet_token_ok_payment"], as_dict=True)
+
+		frappe.log_error(title="payment_request_data", message=f"{payment_request_data.pay_gate_visanet_token_ok_payment} - {payment_request_data.status}")
+		if payment_request_data.status == "Paid" and payment_request_data.pay_gate_visanet_token_ok_payment != "":
+			return  {"redirect_to": payment_request_data.pay_gate_visanet_token_ok_payment, "status": "Completed"}
+
+		return {}
+
+	except Exception:
+		frappe.log_error(title=f"Error verificar pago {reference_docname}", message=frappe.get_traceback())
+		return {}
