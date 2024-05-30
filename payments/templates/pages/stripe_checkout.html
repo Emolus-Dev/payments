@@ -49,11 +49,11 @@
 			<label class="mb-4">
 				{% if frappe.session.user != "Guest" %}
 				<input type="checkbox" id="allow_save_token">
-				{{ _("Marca si deseas guardar tu información de pago y facilitar el proceso de pago la próxima vez.") }}
+				{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
 
 				{% else %}
-				<p>{{ _("Inicia sesión si deseas guardar tu información de pago y facilitar el proceso de pago la próxima vez.") }}<br/>
-				{{ _("Si no cuentas con un usuario haz click") }} <b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
+				<p>{{ _("Inicia sesión si deseas administrar tus formas de pago.") }}<br/>
+				{{ _("Si no cuentas con una contraseña de usuario haz click ") }} <b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
 				{% endif %}
 			</label>
 
