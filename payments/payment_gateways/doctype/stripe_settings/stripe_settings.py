@@ -236,23 +236,41 @@ class StripeSettings(Document):
 
     def create_charge_on_stripe(self) -> dict[str, Any]:
         try:
-            # TODO
             # Si el usuario marco que desea guardar el metodo de pago
             if self.save_payment_method == "OK":
                 self.attach_payment_method(self.result_stripe)
 
-                # Crear un cargo utilizando el cliente y el método de pago
-                self.charge = stripe.Charge.create(
-                    customer=self.stripe_customer.id,
-                    amount=cint(
-                        flt(self.data.amount) * 100
-                    ),  # El monto del cargo en centavos (por ejemplo, 2000 centavos = 20.00 USD)
-                    currency=self.data.currency,
-                    description="Descripción del cargo",
-                    payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
-                    confirm=True,  # Confirmar el pago inmediatamente
-                    receipt_email=self.data.payer_email,
-                )
+                if self.stripe_customer.id and self.stripe_payment_method.id:
+                    # Crear un cargo utilizando el cliente y el método de pago
+                    self.charge = stripe.Charge.create(
+                        customer=self.stripe_customer.id,
+                        amount=cint(
+                            flt(self.data.amount) * 100
+                        ),  # El monto del cargo en centavos (por ejemplo, 2000 centavos = 20.00 USD)
+                        currency=self.data.currency,
+                        description="Descripción del cargo",
+                        payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
+                        confirm=True,  # Confirmar el pago inmediatamente
+                        receipt_email=self.data.payer_email,
+                    )
+
+                    if self.charge.captured:
+                        self.integration_request.db_set(
+                            "status", "Completed", update_modified=False
+                        )
+
+                        frappe.log_error(
+                            title="data recibida 2",
+                            message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
+                        )
+
+                        self.flags.status_changed_to = "Completed"
+
+                    else:
+                        frappe.log_error(
+                            title=f"Stripe Payment not completed {self.data.reference_docname}",
+                            message=self.charge.failure_message,
+                        )
 
             else:
                 self.charge = stripe.Charge.create(
@@ -333,7 +351,7 @@ class StripeSettings(Document):
         try:
             if not validate_email_address(self.data.payer_email):
                 frappe.log_error(title="correo no valido", message="")
-                return
+                return False
 
             pk_customer = frappe.db.get_value(
                 "Payment Request", self.data.order_id, "party"
@@ -341,16 +359,22 @@ class StripeSettings(Document):
 
             if not frappe.db.exists("Customer", pk_customer):
                 frappe.log_error(title=f"cliente no valido {pk_customer}", message="")
-                return
+                return False
 
             frappe.set_user(self.data.payer_email)
 
-            # Crear un cliente
-            self.stripe_customer = stripe.Customer.create(
-                email=self.data.payer_email,
-                name=pk_customer,
-                description="Cliente creado desde ERPNext",
-            )
+            # Si ya existe un cliente con el email, se usara
+            customers = stripe.Customer.list(email=self.email).auto_paging_iter()
+            self.stripe_customer = next(customers, None)
+
+            # Si no existe un cliente con el email, se crea
+            if self.stripe_customer is None:
+                # Crear un cliente
+                self.stripe_customer = stripe.Customer.create(
+                    email=self.data.payer_email,
+                    name=pk_customer,
+                    description="Cliente creado desde ERPNext",
+                )
 
             # Crear y asociar un método de pago al cliente
             self.stripe_payment_method = stripe.PaymentMethod.create(
@@ -360,21 +384,24 @@ class StripeSettings(Document):
                 },
             )
 
+            # Al cliente se le adjunta la forma de pago
             stripe.PaymentMethod.attach(
                 self.stripe_payment_method.id,
                 customer=self.stripe_customer.id,
             )
 
-            # Crear un cliente y forma de pago
+            # Registramos la tarjeta en el ERP
             frappe.get_doc(
                 {
                     "doctype": "PayGate Card",
                     "customer": pk_customer,
-                    "token_temp": result_stripe,
+                    "token_temp": "",
                     "is_default": 1,
                     "email": self.data.payer_email,
                     "gateway": "Stripe",
                     "process_data": 0,
+                    "stripe_customer_id": self.stripe_customer.id,
+                    "stripe_payment_id": self.stripe_payment_method.id,
                 }
             ).insert(ignore_permissions=True)
 
