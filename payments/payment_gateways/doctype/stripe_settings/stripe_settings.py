@@ -271,7 +271,7 @@ class StripeSettings(Document):
                             message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
                         )
 
-                        self.flags.status_changed_to = "Completed Stripe"
+                        self.flags.status_changed_to = "Completed"
 
                     else:
                         frappe.log_error(
@@ -324,33 +324,12 @@ class StripeSettings(Document):
         if self.flags.status_changed_to == "Completed":
             if self.data.reference_doctype and self.data.reference_docname:
                 custom_redirect_to = None
+
                 try:
                     custom_redirect_to = frappe.get_doc(
                         self.data.reference_doctype, self.data.reference_docname
                     ).run_method("on_payment_authorized", self.flags.status_changed_to)
-                except Exception:
-                    frappe.log_error(
-                        title="Error finalize request", message=frappe.get_traceback()
-                    )
 
-                if custom_redirect_to:
-                    redirect_to = custom_redirect_to
-
-                redirect_url = "payment-success?doctype={}&docname={}".format(
-                    self.data.reference_doctype, self.data.reference_docname
-                )
-
-            if self.redirect_url:
-                redirect_url = self.redirect_url
-                redirect_to = None
-
-        elif self.flags.status_changed_to == "Completed Stripe":
-            if self.data.reference_doctype and self.data.reference_docname:
-                custom_redirect_to = None
-                try:
-                    custom_redirect_to = frappe.get_doc(
-                        self.data.reference_doctype, self.data.reference_docname
-                    ).run_method("on_payment_authorized", self.flags.status_changed_to)
                 except Exception:
                     frappe.log_error(
                         title="Error finalize request", message=frappe.get_traceback()
@@ -477,7 +456,7 @@ class StripeSettings(Document):
         try:
             self.payment_req_ref = self.data.get("reference_docname")
 
-            if self.flags.status_changed_to == "Completed Stripe":
+            if self.charge.get("object") == "payment_intent":
                 new_res_log = frappe.get_doc(
                     {
                         "doctype": "PayGate Response Log",
@@ -517,6 +496,12 @@ class StripeSettings(Document):
                 new_res_log.insert(ignore_permissions=True)
 
                 if self.charge.get("status") == "succeeded":
+                    self.redirect_url = (
+                        self.charge.get("charges")
+                        .get("data")[0]
+                        .get("receipt_url", "/stripe/payment-ok")
+                    )
+
                     self.set_url_sucess_payment(
                         self.charge.get("charges")
                         .get("data")[0]
@@ -530,7 +515,7 @@ class StripeSettings(Document):
                         .get("receipt_url", "/stripe/payment-ok")
                     )
 
-            if self.flags.status_changed_to == "Completed":
+            if self.charge.get("object") == "charge":
                 new_res_log = frappe.get_doc(
                     {
                         "doctype": "PayGate Response Log",
@@ -559,6 +544,10 @@ class StripeSettings(Document):
                 new_res_log.insert(ignore_permissions=True)
 
                 if self.charge.get("captured"):
+                    self.redirect_url = self.charge.get(
+                        "receipt_url", "/stripe/payment-ok"
+                    )
+
                     self.set_url_sucess_payment(
                         self.charge.get("receipt_url", "/stripe/payment-ok")
                     )
