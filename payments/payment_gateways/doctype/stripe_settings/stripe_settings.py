@@ -205,11 +205,11 @@ class StripeSettings(Document):
     def create_request(self, data, save_payment_method="", result_stripe={}):
         import stripe
 
-        frappe.log_error(title="Stripe checkout", message=result_stripe)
         self.data = frappe._dict(data)
         stripe.api_key = self.get_password(
             fieldname="secret_key", raise_exception=False
         )
+
         stripe.default_http_client = stripe.http_client.RequestsClient()
 
         try:
@@ -217,7 +217,7 @@ class StripeSettings(Document):
                 self.data, service_name="Stripe"
             )
             self.save_payment_method = save_payment_method
-            self.result_stripe = result_stripe
+            self.result_stripe = json.loads(result_stripe)
             return self.create_charge_on_stripe()
 
         except Exception:
@@ -238,11 +238,15 @@ class StripeSettings(Document):
         try:
             # Si el usuario marco que desea guardar el metodo de pago
             if self.save_payment_method == "OK":
-                self.attach_payment_method(self.result_stripe)
+                response_stripe = self.attach_payment_method()
 
-                if self.stripe_customer.id and self.stripe_payment_method.id:
+                if (
+                    self.stripe_customer.id
+                    and self.stripe_payment_method.id
+                    and response_stripe
+                ):
                     # Crear un cargo utilizando el cliente y el método de pago
-                    self.charge = stripe.Charge.create(
+                    self.charge = stripe.PaymentIntent.create(
                         customer=self.stripe_customer.id,
                         amount=cint(
                             flt(self.data.amount) * 100
@@ -250,11 +254,13 @@ class StripeSettings(Document):
                         currency=self.data.currency,
                         description="Descripción del cargo",
                         payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
-                        confirm=True,  # Confirmar el pago inmediatamente
                         receipt_email=self.data.payer_email,
+                        confirm=True,
                     )
 
-                    if self.charge.captured:
+                    frappe.log_error(title="res payment", message=self.charge)
+
+                    if self.charge.status == "succeeded":
                         self.integration_request.db_set(
                             "status", "Completed", update_modified=False
                         )
@@ -347,8 +353,11 @@ class StripeSettings(Document):
 
         return {"redirect_to": redirect_url, "status": status}
 
-    def attach_payment_method(self, result_stripe="{}"):
+    def attach_payment_method(self):
         try:
+            self.stripe_customer = {}
+            self.stripe_payment_method = {}
+
             if not validate_email_address(self.data.payer_email):
                 frappe.log_error(title="correo no valido", message="")
                 return False
@@ -363,8 +372,17 @@ class StripeSettings(Document):
 
             frappe.set_user(self.data.payer_email)
 
+            stripe.api_key = self.get_password(
+                fieldname="secret_key", raise_exception=False
+            )
+            frappe.log_error(
+                title="Stripe checkout key", message=f"{stripe.api_key} - {self.name}"
+            )
+
             # Si ya existe un cliente con el email, se usara
-            customers = stripe.Customer.list(email=self.email).auto_paging_iter()
+            customers = stripe.Customer.list(
+                email=self.data.payer_email
+            ).auto_paging_iter()
             self.stripe_customer = next(customers, None)
 
             # Si no existe un cliente con el email, se crea
@@ -402,14 +420,29 @@ class StripeSettings(Document):
                     "process_data": 0,
                     "stripe_customer_id": self.stripe_customer.id,
                     "stripe_payment_id": self.stripe_payment_method.id,
+                    "card_number": "*" * 12
+                    + str(self.result_stripe.get("token").get("card").get("last4")),
+                    "expiration_month": self.result_stripe.get("token")
+                    .get("card")
+                    .get("exp_month"),
+                    "expiration_year": self.result_stripe.get("token")
+                    .get("card")
+                    .get("exp_year"),
+                    "card_brand": self.result_stripe.get("token")
+                    .get("card")
+                    .get("brand"),
                 }
             ).insert(ignore_permissions=True)
+
+            return True
 
         except Exception:
             frappe.log_error(
                 title="Stripe checkout -> attach payment method",
                 message=frappe.get_traceback(),
             )
+
+            return False
 
 
 def get_gateway_controller(doctype, docname):
