@@ -555,13 +555,13 @@ class StripeSettings(Document):
 
                     return self.charge.get("receipt_url", "/stripe/payment-ok")
 
-            return ""
+            return "payment-failed"
 
         except Exception:
             frappe.log_error(
                 title="Error guardar response Stripe", message=frappe.get_traceback()
             )
-            return ""
+            return "payment-failed"
 
     def set_url_sucess_payment(self, url):
         try:
