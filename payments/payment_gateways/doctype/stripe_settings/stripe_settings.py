@@ -518,11 +518,17 @@ class StripeSettings(Document):
 
                 if self.charge.get("status") == "succeeded":
                     self.set_url_sucess_payment(
-                        self.charge.get("receipt_url", "/stripe/payment-ok")
+                        self.charge.get("charges")
+                        .get("data")[0]
+                        .get("receipt_url", "/stripe/payment-ok")
                     )
                     self.set_payment_request_as_paid(self.payment_req_ref)
 
-                    return self.charge.get("receipt_url", "/stripe/payment-ok")
+                    return (
+                        self.charge.get("charges")
+                        .get("data")[0]
+                        .get("receipt_url", "/stripe/payment-ok")
+                    )
 
             if self.flags.status_changed_to == "Completed":
                 new_res_log = frappe.get_doc(
@@ -567,6 +573,36 @@ class StripeSettings(Document):
                 title="Error guardar response Stripe", message=frappe.get_traceback()
             )
             return ""
+
+    def set_url_sucess_payment(self, url):
+        try:
+            frappe.db.set_value(
+                "Payment Request",
+                self.payment_req_ref,
+                "pay_gate_visanet_token_ok_payment",
+                url,
+            )
+            frappe.db.commit()
+
+        except Exception:
+            frappe.log_error(
+                title="Error guardar URL de pago exitoso",
+                message=frappe.get_traceback(),
+            )
+
+    def set_payment_request_as_paid(self, payment_request):
+        try:
+            if not payment_request:
+                return
+
+            pay_req = frappe.get_doc("Payment Request", payment_request)
+            pay_req.set_as_paid()
+
+        except Exception:
+            frappe.log_error(
+                title=f"Error al marcar pago como exitoso {payment_request}",
+                message=frappe.get_traceback(),
+            )
 
 
 def get_gateway_controller(doctype, docname):
