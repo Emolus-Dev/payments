@@ -431,6 +431,8 @@ class StripeSettings(Document):
                     "card_brand": self.result_stripe.get("token")
                     .get("card")
                     .get("brand"),
+                    "gateway_dt": "Stripe Settings",
+                    "gateway_setting_name": self.name,
                 }
             ).insert(ignore_permissions=True)
 
