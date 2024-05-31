@@ -238,12 +238,12 @@ class StripeSettings(Document):
         try:
             # Si el usuario marco que desea guardar el metodo de pago
             if self.save_payment_method == "OK":
-                response_stripe = self.attach_payment_method()
+                status_response_stripe = self.attach_payment_method()
 
                 if (
                     self.stripe_customer.id
                     and self.stripe_payment_method.id
-                    and response_stripe
+                    and status_response_stripe
                 ):
                     # Crear un cargo utilizando el cliente y el método de pago
                     self.charge = stripe.PaymentIntent.create(
@@ -252,7 +252,7 @@ class StripeSettings(Document):
                             flt(self.data.amount) * 100
                         ),  # El monto del cargo en centavos (por ejemplo, 2000 centavos = 20.00 USD)
                         currency=self.data.currency,
-                        description="Descripción del cargo",
+                        # description="Descripción del cargo",
                         payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
                         receipt_email=self.data.payer_email,
                         confirm=True,
@@ -260,6 +260,7 @@ class StripeSettings(Document):
 
                     frappe.log_error(title="res payment", message=self.charge)
 
+                    # Si el pago es OK
                     if self.charge.status == "succeeded":
                         self.integration_request.db_set(
                             "status", "Completed", update_modified=False
@@ -270,7 +271,7 @@ class StripeSettings(Document):
                             message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
                         )
 
-                        self.flags.status_changed_to = "Completed"
+                        self.flags.status_changed_to = "Completed Stripe"
 
                     else:
                         frappe.log_error(
@@ -311,6 +312,8 @@ class StripeSettings(Document):
                 message=frappe.get_traceback(),
             )
 
+        self.save_stripe_response()
+
         return self.finalize_request()
 
     def finalize_request(self):
@@ -340,6 +343,30 @@ class StripeSettings(Document):
             if self.redirect_url:
                 redirect_url = self.redirect_url
                 redirect_to = None
+
+        elif self.flags.status_changed_to == "Completed Stripe":
+            if self.data.reference_doctype and self.data.reference_docname:
+                custom_redirect_to = None
+                try:
+                    custom_redirect_to = frappe.get_doc(
+                        self.data.reference_doctype, self.data.reference_docname
+                    ).run_method("on_payment_authorized", self.flags.status_changed_to)
+                except Exception:
+                    frappe.log_error(
+                        title="Error finalize request", message=frappe.get_traceback()
+                    )
+
+                if custom_redirect_to:
+                    redirect_to = custom_redirect_to
+
+                redirect_url = "payment-success?doctype={}&docname={}".format(
+                    self.data.reference_doctype, self.data.reference_docname
+                )
+
+            if self.redirect_url:
+                redirect_url = self.redirect_url
+                redirect_to = None
+
         else:
             redirect_url = "payment-failed"
 
@@ -353,7 +380,7 @@ class StripeSettings(Document):
 
         return {"redirect_to": redirect_url, "status": status}
 
-    def attach_payment_method(self):
+    def attach_payment_method(self) -> bool:
         try:
             self.stripe_customer = {}
             self.stripe_payment_method = {}
@@ -445,6 +472,101 @@ class StripeSettings(Document):
             )
 
             return False
+
+    def save_stripe_response(self) -> None:
+        try:
+            self.payment_req_ref = self.data.get("reference_docname")
+
+            if self.flags.status_changed_to == "Completed Stripe":
+                new_res_log = frappe.get_doc(
+                    {
+                        "doctype": "PayGate Response Log",
+                        "gateway": "Stripe",
+                        "ref_to_payment_request": self.payment_req_ref or "",
+                        "payment_stripe_is_paid": 1
+                        if self.charge.get("status") == "succeeded"
+                        else 0,
+                        "payment_stripe_id": self.charge.get("id"),
+                        "amount": flt(self.charge.get("amount") / 100),
+                        "amount_captured": flt(
+                            self.charge.get("charges")
+                            .get("data")[0]
+                            .get("amount_captured")
+                            / 100
+                        ),
+                        "amount_refunded": flt(
+                            self.charge.get("charges")
+                            .get("data")[0]
+                            .get("amount_refunded")
+                            / 100
+                        ),
+                        "stripe_receipt_email": self.charge.get("receipt_email"),
+                        # "stripe_receipt_number": self.charge.get("receipt_number"),
+                        "stripe_currency": self.charge.get("charges")
+                        .get("data")[0]
+                        .get("currency")
+                        .upper(),
+                        "stripe_receipt_url": self.charge.get("charges")
+                        .get("data")[0]
+                        .get("receipt_url", "/stripe/payment-ok"),
+                        "stripe_response": json.dumps(
+                            self.charge, indent=2, default=str
+                        ),
+                    }
+                )
+                new_res_log.insert(ignore_permissions=True)
+
+                if self.charge.get("status") == "succeeded":
+                    self.set_url_sucess_payment(
+                        self.charge.get("receipt_url", "/stripe/payment-ok")
+                    )
+                    self.set_payment_request_as_paid(self.payment_req_ref)
+
+                    return self.charge.get("receipt_url", "/stripe/payment-ok")
+
+            if self.flags.status_changed_to == "Completed":
+                new_res_log = frappe.get_doc(
+                    {
+                        "doctype": "PayGate Response Log",
+                        "gateway": "Stripe",
+                        "ref_to_payment_request": self.payment_req_ref or "",
+                        "payment_stripe_is_paid": self.charge.get("captured"),
+                        "payment_stripe_id": self.charge.get("id"),
+                        "amount": flt(self.charge.get("amount") / 100),
+                        "amount_captured": flt(
+                            self.charge.get("amount_captured") / 100
+                        ),
+                        "amount_refunded": flt(
+                            self.charge.get("amount_refunded") / 100
+                        ),
+                        "stripe_receipt_email": self.charge.get("receipt_email"),
+                        "stripe_receipt_number": self.charge.get("receipt_number"),
+                        "stripe_currency": self.charge.get("currency").upper(),
+                        "stripe_receipt_url": self.charge.get(
+                            "receipt_url", "/stripe/payment-ok"
+                        ),
+                        "stripe_response": json.dumps(
+                            self.charge, indent=2, default=str
+                        ),
+                    }
+                )
+                new_res_log.insert(ignore_permissions=True)
+
+                if self.charge.get("captured"):
+                    self.set_url_sucess_payment(
+                        self.charge.get("receipt_url", "/stripe/payment-ok")
+                    )
+                    self.set_payment_request_as_paid(self.payment_req_ref)
+
+                    return self.charge.get("receipt_url", "/stripe/payment-ok")
+
+            return ""
+
+        except Exception:
+            frappe.log_error(
+                title="Error guardar response Stripe", message=frappe.get_traceback()
+            )
+            return ""
 
 
 def get_gateway_controller(doctype, docname):
