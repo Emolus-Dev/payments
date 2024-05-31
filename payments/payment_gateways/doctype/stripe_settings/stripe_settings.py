@@ -236,9 +236,23 @@ class StripeSettings(Document):
 
     def create_charge_on_stripe(self) -> dict[str, Any]:
         try:
+            # TODO
             # Si el usuario marco que desea guardar el metodo de pago
             if self.save_payment_method == "OK":
                 self.attach_payment_method(self.result_stripe)
+
+                # Crear un cargo utilizando el cliente y el método de pago
+                self.charge = stripe.Charge.create(
+                    customer=self.stripe_customer.id,
+                    amount=cint(
+                        flt(self.data.amount) * 100
+                    ),  # El monto del cargo en centavos (por ejemplo, 2000 centavos = 20.00 USD)
+                    currency=self.data.currency,
+                    description="Descripción del cargo",
+                    payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
+                    confirm=True,  # Confirmar el pago inmediatamente
+                    receipt_email=self.data.payer_email,
+                )
 
             else:
                 self.charge = stripe.Charge.create(
@@ -331,6 +345,26 @@ class StripeSettings(Document):
 
             frappe.set_user(self.data.payer_email)
 
+            # Crear un cliente
+            self.stripe_customer = stripe.Customer.create(
+                email=self.data.payer_email,
+                name=pk_customer,
+                description="Cliente creado desde ERPNext",
+            )
+
+            # Crear y asociar un método de pago al cliente
+            self.stripe_payment_method = stripe.PaymentMethod.create(
+                type="card",
+                card={
+                    "token": self.data.stripe_token_id,
+                },
+            )
+
+            stripe.PaymentMethod.attach(
+                self.stripe_payment_method.id,
+                customer=self.stripe_customer.id,
+            )
+
             # Crear un cliente y forma de pago
             frappe.get_doc(
                 {
@@ -340,6 +374,7 @@ class StripeSettings(Document):
                     "is_default": 1,
                     "email": self.data.payer_email,
                     "gateway": "Stripe",
+                    "process_data": 0,
                 }
             ).insert(ignore_permissions=True)
 
