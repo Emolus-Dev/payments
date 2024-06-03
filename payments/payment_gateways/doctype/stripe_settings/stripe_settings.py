@@ -307,7 +307,7 @@ class StripeSettings(Document):
                         message=self.charge.failure_message,
                     )
 
-            frappe.log_error(title="save charge", message=self.charge)
+            # frappe.log_error(title="save charge", message=self.charge)
 
         except Exception:
             frappe.log_error(
