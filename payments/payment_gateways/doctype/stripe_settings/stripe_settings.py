@@ -279,6 +279,7 @@ class StripeSettings(Document):
                             message=self.charge.failure_message,
                         )
 
+            # Si el usuario no marco que desear guardar el metodo de pago
             else:
                 self.charge = stripe.Charge.create(
                     amount=cint(flt(self.data.amount) * 100),
@@ -305,6 +306,8 @@ class StripeSettings(Document):
                         title=f"Stripe Payment not completed {self.data.reference_docname}",
                         message=self.charge.failure_message,
                     )
+
+            frappe.log_error(title="save charge", message=self.charge)
 
         except Exception:
             frappe.log_error(
@@ -360,6 +363,9 @@ class StripeSettings(Document):
         return {"redirect_to": redirect_url, "status": status}
 
     def attach_payment_method(self) -> bool:
+        """
+        Adjunta el metodo de pago al cliente que este haciendo la transacción
+        """
         try:
             self.stripe_customer = {}
             self.stripe_payment_method = {}
@@ -380,9 +386,6 @@ class StripeSettings(Document):
 
             stripe.api_key = self.get_password(
                 fieldname="secret_key", raise_exception=False
-            )
-            frappe.log_error(
-                title="Stripe checkout key", message=f"{stripe.api_key} - {self.name}"
             )
 
             # Si ya existe un cliente con el email, se usara
@@ -408,39 +411,56 @@ class StripeSettings(Document):
                 },
             )
 
-            # Al cliente se le adjunta la forma de pago
-            stripe.PaymentMethod.attach(
-                self.stripe_payment_method.id,
-                customer=self.stripe_customer.id,
+            frappe.log_error(
+                title="testing",
+                message=f"{self.stripe_payment_method.id}  <-->  {self.stripe_customer.id}",
             )
 
-            # Registramos la tarjeta en el ERP
-            frappe.get_doc(
-                {
-                    "doctype": "PayGate Card",
-                    "customer": pk_customer,
-                    "token_temp": "",
-                    "is_default": 1,
-                    "email": self.data.payer_email,
-                    "gateway": "Stripe",
-                    "process_data": 0,
-                    "stripe_customer_id": self.stripe_customer.id,
-                    "stripe_payment_id": self.stripe_payment_method.id,
-                    "card_number": "*" * 12
-                    + str(self.result_stripe.get("token").get("card").get("last4")),
-                    "expiration_month": self.result_stripe.get("token")
-                    .get("card")
-                    .get("exp_month"),
-                    "expiration_year": self.result_stripe.get("token")
-                    .get("card")
-                    .get("exp_year"),
-                    "card_brand": self.result_stripe.get("token")
-                    .get("card")
-                    .get("brand"),
-                    "gateway_dt": "Stripe Settings",
-                    "gateway_setting_name": self.name,
-                }
-            ).insert(ignore_permissions=True)
+            payment_method_exists = self.is_payment_method_attached_(
+                str(self.stripe_payment_method.id), str(self.stripe_customer.id)
+            )
+
+            # Si la forma de pago no esta asociada al cliente, se asocia
+            if not payment_method_exists:
+                # Al cliente se le adjunta la forma de pago
+                stripe.PaymentMethod.attach(
+                    self.stripe_payment_method.id,
+                    customer=self.stripe_customer.id,
+                )
+
+                # Registramos la tarjeta en el ERP
+                frappe.get_doc(
+                    {
+                        "doctype": "PayGate Card",
+                        "customer": pk_customer,
+                        "token_temp": "",
+                        "is_default": 1,
+                        "email": self.data.payer_email,
+                        "gateway": "Stripe",
+                        "process_data": 0,
+                        "stripe_customer_id": self.stripe_customer.id,
+                        "stripe_payment_id": self.stripe_payment_method.id,
+                        "card_number": "*" * 12
+                        + str(self.result_stripe.get("token").get("card").get("last4")),
+                        "expiration_month": self.result_stripe.get("token")
+                        .get("card")
+                        .get("exp_month"),
+                        "expiration_year": self.result_stripe.get("token")
+                        .get("card")
+                        .get("exp_year"),
+                        "card_brand": self.result_stripe.get("token")
+                        .get("card")
+                        .get("brand"),
+                        "gateway_dt": "Stripe Settings",
+                        "gateway_setting_name": self.name,
+                    }
+                ).insert(ignore_permissions=True)
+
+            else:
+                frappe.log_error(
+                    title="forma pago ya existe",
+                    message="forma de pago ya existe en el cliente",
+                )
 
             return True
 
@@ -592,6 +612,23 @@ class StripeSettings(Document):
                 title=f"Error al marcar pago como exitoso {payment_request}",
                 message=frappe.get_traceback(),
             )
+
+    def is_payment_method_attached_(
+        self, payment_method_id: str, customer_id: str
+    ) -> bool:
+        try:
+            payment_methods = stripe.PaymentMethod.list(customer=customer_id)
+            for pm in payment_methods.data:
+                if pm.id == payment_method_id:
+                    return True
+
+            return False
+
+        except Exception:
+            frappe.log_error(
+                title="Error is payment method attached", message=frappe.get_traceback()
+            )
+            return False
 
 
 def get_gateway_controller(doctype, docname):
