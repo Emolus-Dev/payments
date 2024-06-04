@@ -432,7 +432,7 @@ class StripeSettings(Document):
                         .get("card")
                         .get("brand"),
                         "gateway_dt": "Stripe Settings",
-                        "gateway_setting_name": self.name,
+                        "gateway_setting_name": self.name,  # Es indispensable guardar el nombre de la config usada
                     }
                 ).insert(ignore_permissions=True)
 
