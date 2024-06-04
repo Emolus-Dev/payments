@@ -104,10 +104,10 @@ def make_payment(
 
     data.update({"stripe_token_id": stripe_token_id})
 
-    frappe.log_error(
-        title="data recibida",
-        message=f"{data} - {save_payment_method} - {result_stripe}",
-    )
+    # frappe.log_error(
+    #     title="data recibida",
+    #     message=f"{data} - {save_payment_method} - {result_stripe}",
+    # )
     # return
 
     gateway_controller = get_gateway_controller(reference_doctype, reference_docname)

@@ -252,23 +252,16 @@ class StripeSettings(Document):
                             flt(self.data.amount) * 100
                         ),  # El monto del cargo en centavos (por ejemplo, 2000 centavos = 20.00 USD)
                         currency=self.data.currency,
-                        # description="Descripción del cargo",
+                        description=self.data.description,
                         payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
                         receipt_email=self.data.payer_email,
                         confirm=True,
                     )
 
-                    frappe.log_error(title="res payment", message=self.charge)
-
                     # Si el pago es OK
                     if self.charge.status == "succeeded":
                         self.integration_request.db_set(
                             "status", "Completed", update_modified=False
-                        )
-
-                        frappe.log_error(
-                            title="data recibida 2",
-                            message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
                         )
 
                         self.flags.status_changed_to = "Completed"
@@ -294,11 +287,6 @@ class StripeSettings(Document):
                         "status", "Completed", update_modified=False
                     )
 
-                    frappe.log_error(
-                        title="data recibida 2",
-                        message=f"{self.data} - {self.save_payment_method} - {self.result_stripe}",
-                    )
-
                     self.flags.status_changed_to = "Completed"
 
                 else:
@@ -306,8 +294,6 @@ class StripeSettings(Document):
                         title=f"Stripe Payment not completed {self.data.reference_docname}",
                         message=self.charge.failure_message,
                     )
-
-            # frappe.log_error(title="save charge", message=self.charge)
 
         except Exception:
             frappe.log_error(
@@ -371,7 +357,6 @@ class StripeSettings(Document):
             self.stripe_payment_method = {}
 
             if not validate_email_address(self.data.payer_email):
-                frappe.log_error(title="correo no valido", message="")
                 return False
 
             pk_customer = frappe.db.get_value(
@@ -379,7 +364,6 @@ class StripeSettings(Document):
             )
 
             if not frappe.db.exists("Customer", pk_customer):
-                frappe.log_error(title=f"cliente no valido {pk_customer}", message="")
                 return False
 
             frappe.set_user(self.data.payer_email)
@@ -411,11 +395,7 @@ class StripeSettings(Document):
                 },
             )
 
-            frappe.log_error(
-                title="testing",
-                message=f"{self.stripe_payment_method.id}  <-->  {self.stripe_customer.id}",
-            )
-
+            # ya existe el metodo de pago en stripe?
             payment_method_exists = self.is_payment_method_attached_(
                 str(self.stripe_payment_method.id), str(self.stripe_customer.id)
             )
@@ -428,7 +408,7 @@ class StripeSettings(Document):
                     customer=self.stripe_customer.id,
                 )
 
-                # Registramos la tarjeta en el ERP
+                # Registramos la tarjeta en el ERP para futuros usos
                 frappe.get_doc(
                     {
                         "doctype": "PayGate Card",
@@ -620,6 +600,7 @@ class StripeSettings(Document):
             payment_methods = stripe.PaymentMethod.list(customer=customer_id)
             for pm in payment_methods.data:
                 if pm.id == payment_method_id:
+                    frappe.log_error(title="Ya existe", message=pm)
                     return True
 
             return False
