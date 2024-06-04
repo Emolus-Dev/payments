@@ -153,9 +153,10 @@ def verify_payment(reference_doctype, reference_docname):
         )
 
         frappe.log_error(
-            title="payment_request_data",
-            message=f"{payment_request_data.pay_gate_visanet_token_ok_payment} - {payment_request_data.status}",
+            title="Verificando link de pago",
+            message=f"url: {payment_request_data.pay_gate_visanet_token_ok_payment} - status: {payment_request_data.status}",
         )
+
         if (
             payment_request_data.status == "Paid"
             and payment_request_data.pay_gate_visanet_token_ok_payment != ""
