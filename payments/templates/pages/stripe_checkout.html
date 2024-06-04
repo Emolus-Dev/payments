@@ -46,20 +46,24 @@
 
 			</div>
 
-			<label >
+			<div >
 				{% if frappe.session.user != "Guest" %}
+				<label>
 					<input type="checkbox" id="allow_save_token">
 					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+				</label>
 
 				{% else %}
+				<label>
 					<input type="checkbox" id="allow_save_token">
 					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+				</label>
 
-					<br/>
-					<p >{{ _("Si no cuentas con una contraseña de usuario para iniciar sesión haz click ") }} <b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
+				<label>
+				<p >{{ _("Si no cuentas con una contraseña de usuario para iniciar sesión haz click ") }} <span><b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b></span> {{ _("para enviar la información a tu correo electrónico.") }}</p>
+				</label>
 				{% endif %}
-
-			</label>
+			</div>
 
 			<div style="padding-top: 30px;">
 			<button type="submit" class="submit mt-4 mb-4" id="submit">{{_('Pay')}} {{amount}}</button>
@@ -68,7 +72,6 @@
 				<div class="error" hidden>{{ _("An error occured during the payment process. Please contact us.") }}</div>
 				<div class="success" hidden>{{ _("Your payment has been successfully registered.") }}</div>
 			</div>
-			
 		</form>
 	</div>
 </div>
