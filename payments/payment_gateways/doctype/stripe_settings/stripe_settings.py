@@ -600,7 +600,6 @@ class StripeSettings(Document):
             payment_methods = stripe.PaymentMethod.list(customer=customer_id)
             for pm in payment_methods.data:
                 if pm.id == payment_method_id:
-                    frappe.log_error(title="Ya existe", message=pm)
                     return True
 
             return False
