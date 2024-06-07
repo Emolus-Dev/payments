@@ -202,7 +202,7 @@ class StripeSettings(Document):
     def get_payment_url(self, **kwargs):
         return get_url(f"./stripe_checkout?{urlencode(kwargs)}")
 
-    def create_request(self, data, save_payment_method="", result_stripe={}):
+    def create_request(self, data, save_payment_method="", result_stripe={}) -> dict:
         import stripe
 
         self.data = frappe._dict(data)
@@ -245,7 +245,7 @@ class StripeSettings(Document):
                     and self.stripe_payment_method.id
                     and status_response_stripe
                 ):
-                    # Crear un cargo utilizando el cliente y el método de pago
+                    # Se retoma el proceso de cobro y se realiza el cargo
                     self.charge = stripe.PaymentIntent.create(
                         customer=self.stripe_customer.id,
                         amount=cint(
@@ -273,6 +273,7 @@ class StripeSettings(Document):
                         )
 
             # Si el usuario no marco que desear guardar el metodo de pago
+            # se procede con el proceso normal de cobro
             else:
                 self.charge = stripe.Charge.create(
                     amount=cint(flt(self.data.amount) * 100),
@@ -351,6 +352,11 @@ class StripeSettings(Document):
     def attach_payment_method(self) -> bool:
         """
         Adjunta el metodo de pago al cliente que este haciendo la transacción
+
+        - Si no existe cliente con x email en Stripe, se crea
+        - Si ya existe un cliente con x email, se usa
+        - Se crea un metodo de pago y se asocia al cliente
+        - Se guarda la tarjeta en el ERP
         """
         try:
             self.stripe_customer = {}
@@ -363,7 +369,16 @@ class StripeSettings(Document):
                 "Payment Request", self.data.order_id, "party"
             )
 
-            if not frappe.db.exists("Customer", pk_customer):
+            # Debe existir un cliente con usuario paygate y que no este congelado
+            if not frappe.db.exists(
+                "Customer",
+                {
+                    "name": pk_customer,
+                    "is_frozen": 0,
+                    "disabled": 0,
+                    "custom_paygate_user": self.data.payer_email,
+                },
+            ):
                 return False
 
             frappe.set_user(self.data.payer_email)
@@ -372,15 +387,15 @@ class StripeSettings(Document):
                 fieldname="secret_key", raise_exception=False
             )
 
-            # Si ya existe un cliente con el email, se usara
+            # Si ya existe un cliente en Stripe con el email, se usara
             customers = stripe.Customer.list(
                 email=self.data.payer_email
             ).auto_paging_iter()
+
             self.stripe_customer = next(customers, None)
 
             # Si no existe un cliente con el email, se crea
             if self.stripe_customer is None:
-                # Crear un cliente
                 self.stripe_customer = stripe.Customer.create(
                     email=self.data.payer_email,
                     name=pk_customer,
@@ -456,6 +471,7 @@ class StripeSettings(Document):
         try:
             self.payment_req_ref = self.data.get("reference_docname")
 
+            # Se hizo cuando el usuario marco que desea guardar el metodo de pago
             if self.charge.get("object") == "payment_intent":
                 new_res_log = frappe.get_doc(
                     {
@@ -515,6 +531,7 @@ class StripeSettings(Document):
                         .get("receipt_url", "/stripe/payment-ok")
                     )
 
+            # Se hizo cuando el usuario no marco que desea guardar el metodo de pago
             if self.charge.get("object") == "charge":
                 new_res_log = frappe.get_doc(
                     {

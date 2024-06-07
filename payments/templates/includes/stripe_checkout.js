@@ -8,7 +8,7 @@ var style = {
 		lineHeight: '18px',
 		fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
 		fontSmoothing: 'antialiased',
-		fontSize: '16px',
+		fontSize: '14px',
 		'::placeholder': {
 			color: '#aab7c4'
 		}
@@ -90,13 +90,12 @@ frappe.ready(function() {
 		});
 	})
 
-	$('#createUser').off("click").on("click", function(e) {
+	// Se envia por correo el form para que usuario resetee su contraseña,
+	// se usando los datos del payment request para no tener data incorrecta
+	$('#createUser').off("click").one("click", function(e) {
 		e.preventDefault();
 
 		console.log("{{ frappe.form_dict["order_id"] }}")
-
-		// Se envia por correo el form para que usuario resetee su contraseña,
-		// se usando los datos del payment request para no tener data incorrecta
 		frappe.call({
 			method:"pay_gate.api.send_reset_pwd_user",
 			freeze:true,
@@ -112,6 +111,5 @@ frappe.ready(function() {
 				})
 			}
 		});
-
 	})
 });

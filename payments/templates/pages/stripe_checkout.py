@@ -111,11 +111,14 @@ def make_payment(
     data.update({"stripe_token_id": stripe_token_id})
 
     gateway_controller = get_gateway_controller(reference_doctype, reference_docname)
+    frappe.log_error(title="gateway controller", message=gateway_controller)
 
     if is_a_subscription(reference_doctype, reference_docname):
         reference = frappe.get_doc(reference_doctype, reference_docname)
         data = reference.create_subscription("stripe", gateway_controller, data)
+
     else:
+        # Se obtiene la configuracion de la pasarela de pago usada en la solicitud de pago
         data = frappe.get_doc("Stripe Settings", gateway_controller).create_request(
             data, save_payment_method, result_stripe
         )
