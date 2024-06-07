@@ -1,6 +1,7 @@
 # Copyright (c) 2021, Frappe Technologies Pvt. Ltd. and Contributors
 # License: MIT. See LICENSE
 import json
+import urllib.parse
 
 import frappe
 from frappe import _
@@ -89,12 +90,18 @@ def get_api_key(doc, gateway_controller):
     return publishable_key
 
 
-def get_header_image(doc, gateway_controller):
+def get_header_image(doc, gateway_controller) -> str:
+    header_url_image = ""
     header_image = frappe.db.get_value(
         "Stripe Settings", gateway_controller, "header_img"
     )
 
-    return header_image
+    if header_image:
+        parsed_url = urllib.parse.urlparse(header_image)
+        encoded_path = urllib.parse.quote(parsed_url.path)
+        header_url_image = f"{parsed_url.scheme}://{parsed_url.netloc}{encoded_path}"
+
+    return header_url_image
 
 
 @frappe.whitelist(allow_guest=True)
