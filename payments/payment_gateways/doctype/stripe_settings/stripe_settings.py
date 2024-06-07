@@ -254,7 +254,7 @@ class StripeSettings(Document):
                         currency=self.data.currency,
                         description=self.data.description,
                         payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
-                        receipt_email=self.data.payer_email,
+                        receipt_email=self.data.payer_email,  # se envia correo indicado en el payment request
                         confirm=True,
                     )
 
@@ -280,7 +280,7 @@ class StripeSettings(Document):
                     currency=self.data.currency,
                     source=self.data.stripe_token_id,
                     description=self.data.description,
-                    receipt_email=self.data.payer_email,
+                    receipt_email=self.data.payer_email,  # se envia correo indicado en el payment request
                 )
 
                 if self.charge.captured:
@@ -362,26 +362,30 @@ class StripeSettings(Document):
             self.stripe_customer = {}
             self.stripe_payment_method = {}
 
-            if not validate_email_address(self.data.payer_email):
-                return False
-
             pk_customer = frappe.db.get_value(
                 "Payment Request", self.data.order_id, "party"
             )
 
-            # Debe existir un cliente con usuario paygate y que no este congelado
-            if not frappe.db.exists(
+            # Debe existir un cliente con usuario paygate y activo
+            exists_customer_paygate = frappe.db.get_value(
                 "Customer",
-                {
+                filters={
                     "name": pk_customer,
                     "is_frozen": 0,
                     "disabled": 0,
-                    "custom_paygate_user": self.data.payer_email,
+                    "custom_paygate_user": ["!=", ""],
                 },
-            ):
+                fieldname=["name", "custom_paygate_user"],
+                as_dict=True,
+            )
+
+            if not exists_customer_paygate:
                 return False
 
-            frappe.set_user(self.data.payer_email)
+            if not exists_customer_paygate.custom_paygate_user:
+                return False
+
+            frappe.set_user(exists_customer_paygate.custom_paygate_user)
 
             stripe.api_key = self.get_password(
                 fieldname="secret_key", raise_exception=False
@@ -389,7 +393,7 @@ class StripeSettings(Document):
 
             # Si ya existe un cliente en Stripe con el email, se usara
             customers = stripe.Customer.list(
-                email=self.data.payer_email
+                email=exists_customer_paygate.custom_paygate_user
             ).auto_paging_iter()
 
             self.stripe_customer = next(customers, None)
@@ -397,7 +401,7 @@ class StripeSettings(Document):
             # Si no existe un cliente con el email, se crea
             if self.stripe_customer is None:
                 self.stripe_customer = stripe.Customer.create(
-                    email=self.data.payer_email,
+                    email=exists_customer_paygate.custom_paygate_user,
                     name=pk_customer,
                     description="Cliente creado desde ERPNext",
                 )
@@ -430,7 +434,7 @@ class StripeSettings(Document):
                         "customer": pk_customer,
                         "token_temp": "",
                         "is_default": 1,
-                        "email": self.data.payer_email,
+                        "email": exists_customer_paygate.custom_paygate_user,
                         "gateway": "Stripe",
                         "process_data": 0,
                         "stripe_customer_id": self.stripe_customer.id,
