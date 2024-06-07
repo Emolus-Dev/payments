@@ -385,6 +385,12 @@ class StripeSettings(Document):
             if not exists_customer_paygate.custom_paygate_user:
                 return False
 
+            if not frappe.db.exists(
+                "User",
+                {"name": exists_customer_paygate.custom_paygate_user, "enabled": 1},
+            ):
+                return False
+
             frappe.set_user(exists_customer_paygate.custom_paygate_user)
 
             stripe.api_key = self.get_password(
