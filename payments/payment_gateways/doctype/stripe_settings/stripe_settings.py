@@ -611,9 +611,10 @@ class StripeSettings(Document):
             return False
 
 
-def get_gateway_controller(doctype, docname):
-    reference_doc = frappe.get_doc(doctype, docname)
+def get_gateway_controller(doctype, docname) -> str:
+    # reference_doc = frappe.get_doc(doctype, docname)
+    reference_doc = frappe.db.get_value(doctype, docname, "payment_gateway")
     gateway_controller = frappe.db.get_value(
-        "Payment Gateway", reference_doc.payment_gateway, "gateway_controller"
+        "Payment Gateway", reference_doc, "gateway_controller"
     )
     return gateway_controller

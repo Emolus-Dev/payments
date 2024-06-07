@@ -33,6 +33,7 @@ def get_context(context):
         for key in expected_keys:
             context[key] = frappe.form_dict[key]
 
+        # Si el pago ya fue completado, se redirecciona a la url donde esta el voucher de pago
         validate_data_payment = verify_payment(
             context.reference_doctype, context.reference_docname
         )
@@ -48,6 +49,11 @@ def get_context(context):
         context.publishable_key = get_api_key(
             context.reference_docname, gateway_controller
         )
+
+        context.is_tokenization_enabled = frappe.db.get_value(
+            "Stripe Settings", gateway_controller, "custom_enable_tokenization"
+        )
+
         context.image = get_header_image(context.reference_docname, gateway_controller)
 
         context["amount"] = fmt_money(
@@ -103,12 +109,6 @@ def make_payment(
     data = json.loads(data)
 
     data.update({"stripe_token_id": stripe_token_id})
-
-    # frappe.log_error(
-    #     title="data recibida",
-    #     message=f"{data} - {save_payment_method} - {result_stripe}",
-    # )
-    # return
 
     gateway_controller = get_gateway_controller(reference_doctype, reference_docname)
 
