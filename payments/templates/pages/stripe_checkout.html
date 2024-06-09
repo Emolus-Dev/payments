@@ -18,12 +18,15 @@
 
 {%- block page_content -%}
 
-<div class="stripe " style="padding-bottom: 50px; margin-top:100px;margin-left:250px;">
+<div class="stripe-container-checkout">
+<div class="stripe" >
 	<div class="col-sm-10 col-sm-offset-4">
 		{% if image %}
 			<img src={{ image }}>
 		{% endif %}
-		<h2 class="text-center">{{description}}</h2>
+
+		<h4 class="text-center header-description">{{description}}</h4>
+
 		<form id="payment-form">
 			<div class="form-row row">
 				<div class="group col-12">
@@ -55,34 +58,44 @@
 			{% if is_tokenization_enabled %}
 			<div >
 				{% if frappe.session.user != "Guest" %}
-				<label>
-					<input type="checkbox" id="allow_save_token">
-					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
-				</label>
+				<div class="col-12 texto-usr text-check-save-payment">
+					<label >
+						<input type="checkbox" id="allow_save_token">
+						{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+					</label>
+				</div>
 
 				{% else %}
-				<label>
-					<input type="checkbox" id="allow_save_token">
-					{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
-				</label>
+				<div class="col-12 texto-usr text-check-save-payment">
+					<label>
+						<input type="checkbox" id="allow_save_token">
+						{{ _("Marca si deseas guardar tu información de pago y usarla en el proceso de pago la próxima vez.") }}
+					</label>
+				</div>
 
-				<label>
-				<p >{{ _("Si no cuentas con una contraseña de usuario para iniciar sesión haz click ") }} <span><b id="createUser" class="paygate-user-stripe">{{ _("aquí") }}</b></span> {{ _("para enviar la información a tu correo electrónico.") }}</p>
-				</label>
+				<div class="col-12 texto-usr text-reset-pwd">
+					<label>
+					<p>{{ _("Si no cuentas con una contraseña de usuario para iniciar sesión haz click ") }} <b>{{ _("aquí") }}</b> {{ _("para enviar la información a tu correo electrónico.") }}</p>
+					</label>
+				</div>
 				{% endif %}
 			</div>
 			{% endif %}
 
-			<div style="padding-top: 30px;">
-			<button type="submit" class="submit mt-4 mb-4" id="submit">{{_('Pay')}} {{amount}}</button>
-			</div>
-			<div class="outcome text-center mt-4">
-				<div class="error" hidden>{{ _("An error occured during the payment process. Please contact us.") }}</div>
-				<div class="success" hidden>{{ _("Your payment has been successfully registered.") }}</div>
+			<div >
+				<div>
+				<button type="submit" class="submit mb-4 area-btns-checkout" id="submit">{{_('Pay')}} {{amount}}</button>
+				</div>
+				<div class="outcome text-center">
+					<div class="error" hidden>{{ _("An error occured during the payment process. Please contact us.") }}</div>
+					<div class="success" hidden>{{ _("Your payment has been successfully registered.") }}</div>
+				</div>
 			</div>
 		</form>
 	</div>
 </div>
+</div>
+
 
 
 {% endblock %}
