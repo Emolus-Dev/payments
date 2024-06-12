@@ -118,7 +118,7 @@ def make_payment(
     data.update({"stripe_token_id": stripe_token_id})
 
     gateway_controller = get_gateway_controller(reference_doctype, reference_docname)
-    frappe.log_error(title="gateway controller", message=gateway_controller)
+    # frappe.log_error(title="gateway controller", message=gateway_controller)
 
     if is_a_subscription(reference_doctype, reference_docname):
         reference = frappe.get_doc(reference_doctype, reference_docname)
