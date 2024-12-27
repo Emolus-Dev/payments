@@ -13,6 +13,7 @@ frappe.ui.form.on("Payment Gateway", {
               "ePayServer Settings",
               "Visanet Settings",
               "Stripe Settings",
+              "NeoPay Settings",
             ],
           ],
         },
