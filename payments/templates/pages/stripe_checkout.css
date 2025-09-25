@@ -7,6 +7,7 @@
   box-shadow: 0 1px 3px 0 #e6ebf1;
   -webkit-transition: box-shadow 150ms ease;
   transition: box-shadow 150ms ease;
+  border: 1px solid red;
 }
 
 .StripeElement--focus {
@@ -21,8 +22,29 @@
   background-color: #fefde5;
 }
 
-.stripe #payment-form {
-	margin-top: 2rem;
+.stripe {
+  /* background: #f6f9fc; */
+  /* border: 2px solid #e9ecef; */
+  font-family: "Lato", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #64748b;
+  /* line-height: 1.6; */
+  letter-spacing: 0.025em;
+  margin: 0;
+  height: 500px;
+  width: 80%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border-radius: 8px;
+}
+
+.stripe-container-checkout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stripe button {
@@ -30,88 +52,177 @@
   display: block;
   background: #171717;
   color: white;
-  border-radius: 8px;
+  box-shadow: 0 7px 14px 0 rgba(49, 49, 93, 0.1),
+    0 3px 6px 0 rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
   border: 0;
-  font-size: 14px;
-  font-weight: 420;
+  margin-top: 20px;
+  font-size: 15px;
+  font-weight: 400;
   max-width: 40%;
   height: 40px;
   line-height: 38px;
   outline: none;
 }
 
+.stripe button:hover,
+.stripe button:focus {
+  background: #171717;
+  border-color: #171717;
+}
+
+.stripe button:active {
+  background: #171717;
+}
+
+.stripe button:disabled {
+  background: #515e80;
+}
+
 .stripe .group {
   background: white;
+  box-shadow: 2px 7px 14px 2px rgba(49, 49, 93, 0.1),
+    0 3px 6px 0 rgba(0, 0, 0, 0.08);
   border-radius: 4px;
   margin-bottom: 20px;
 }
 
 .stripe label {
-  position: relative;
-  color: #8898AA;
+  display: flex;
+  align-items: center;
+  color: #8898aa;
   font-weight: 300;
+  line-height: 20px;
   height: 40px;
-  line-height: 40px;
-  margin-left: 20px;
-  display: block;
+  margin-left: 10px;
+  /* display: block; */
 }
 
 .stripe .group label:not(:last-child) {
-  border-bottom: 1px solid #F0F5FA;
+  border-bottom: 1px solid #f0f5fa;
 }
 
-.stripe label>span {
+.stripe label > span {
   width: 20%;
+  text-align: left;
   float: left;
-  color: #525252;
-  font-size: 13px;
-  font-weight: 420;
-  letter-spacing: 0.02em;
 }
 
 .current-card {
-	margin-left: 20px;
+  margin-left: 20px;
 }
 
 .field {
-  border-radius: 8px;
-  letter-spacing: 0.02em;
-  font-size: 14px;
-  font-weight: 420;
+  background: transparent;
+  font-weight: 300;
+  border: 0;
+  color: #31325f;
+  outline: none;
+  padding-right: 10px;
+  padding-left: 10px;
+  cursor: text;
   width: 70%;
+  height: 40px;
   float: right;
-  border: none;
-  height: 28px;
-  padding: 6px 8px;
-  color: #383838;
-  background: #f3f3f3;
-  background-clip: padding-box;
 }
 
 .field::-webkit-input-placeholder {
-  color: #CFD7E0;
+  color: #cfd7e0;
 }
 
 .field::-moz-placeholder {
-  color: #CFD7E0;
+  color: #cfd7e0;
 }
 
 .field:-ms-input-placeholder {
-  color: #CFD7E0;
+  color: #cfd7e0;
 }
 
-#payment-section {
-  min-height: 50vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  padding: 10rem;
+.header-description {
+  color: #31325f;
+  margin-bottom: 40px;
 }
 
-@media (max-width: 48rem) {
-  #payment-section {
-    padding: 0rem;
-    min-height: 70vh;
-  },
+.texto-usr {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.area-btns-checkout {
+  margin-bottom: 40px !important;
+}
+
+/* Estilos para teléfonos móviles (576px o menos) */
+@media (max-width: 576px) {
+  .stripe {
+    width: 100%;
+    height: 100%;
+    padding: 1px;
+  }
+
+  .stripe button {
+    max-width: 60%;
+  }
+
+  .stripe label {
+    display: flex;
+    align-items: center;
+    line-height: 20px;
+    height: 50px;
+    width: 100%;
+    margin-left: 3px;
+  }
+
+  .stripe label span {
+    margin-right: 5px;
+  }
+
+  .text-reset-pwd {
+    margin-top: 40px;
+  }
+
+  .text-check-save-payment {
+    margin-top: 10px;
+  }
+
+  .stripe-container-checkout {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Estilos para pantallas de tabletas (768px y más) */
+@media (min-width: 768px) {
+  .stripe {
+    width: 90%;
+  }
+
+  .text-reset-pwd {
+    margin-top: 15px;
+  }
+}
+
+/* Estilos para pantallas pequeñas de escritorio (992px y más) */
+@media (min-width: 992px) {
+  .stripe {
+    width: 80%;
+  }
+
+  .text-reset-pwd {
+    margin-top: 15px;
+  }
+}
+
+/* Estilos para pantallas grandes de escritorio (1200px y más) */
+@media (min-width: 1200px) {
+  .stripe {
+    width: 80%;
+  }
+  .stripe-container-checkout {
+    height: 80vh;
+  }
+
+  .text-reset-pwd {
+    margin-top: 15px;
+  }
 }

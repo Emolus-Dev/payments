@@ -8,7 +8,7 @@ var style = {
 		lineHeight: '18px',
 		fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
 		fontSmoothing: 'antialiased',
-		fontSize: '16px',
+		fontSize: '14px',
 		'::placeholder': {
 			color: '#aab7c4'
 		}
@@ -27,6 +27,7 @@ var card = elements.create('card', {
 card.mount('#card-element');
 
 function setOutcome(result) {
+	let save_payment_method = $('#allow_save_token').is(':checked');
 
 	if (result.token) {
 		$('#submit').prop('disabled', true)
@@ -40,7 +41,8 @@ function setOutcome(result) {
 				"data": JSON.stringify({{ frappe.form_dict|json }}),
 				"reference_doctype": "{{ reference_doctype }}",
 				"reference_docname": "{{ reference_docname }}",
-				"payment_gateway": "{{ payment_gateway }}"
+				"save_payment_method": save_payment_method ? "OK" : "NOT",
+				"result_stripe": JSON.stringify(result)
 			},
 			callback: function(r) {
 				if (r.message.status == "Completed") {
@@ -49,6 +51,7 @@ function setOutcome(result) {
 					setTimeout(function() {
 						window.location.href = r.message.redirect_to
 					}, 2000);
+
 				} else {
 					$('#submit').hide()
 					$('.error').show()
@@ -81,6 +84,32 @@ frappe.ready(function() {
 			name: $('input[name=cardholder-name]').val(),
 			email: $('input[name=cardholder-email]').val()
 		}
-		stripe.createToken(card, extraDetails).then(setOutcome);
+		stripe.createToken(card, extraDetails).then(function(result) {
+			result.extraDetails = extraDetails;
+			setOutcome(result);
+		});
+	})
+
+	// Se envia por correo el form para que usuario resetee su contraseña,
+	// se usando los datos del payment request para no tener data incorrecta
+	$('#createUser').off("click").one("click", function(e) {
+		e.preventDefault();
+
+		console.log("{{ frappe.form_dict["order_id"] }}")
+		frappe.call({
+			method:"pay_gate.api.send_reset_pwd_user",
+			freeze:true,
+			headers: {"X-Requested-With": "XMLHttpRequest"},
+			args: {
+				"payment_request_ref": "{{ frappe.form_dict["order_id"] }}"
+			},
+			callback: function(r) {
+				console.log(r)
+				frappe.show_alert({
+					message: __("Revisa tu correo electrónico para completar el proceso."),
+					indicator: 'green'
+				})
+			}
+		});
 	})
 });
