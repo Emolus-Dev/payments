@@ -6,3 +6,4 @@ tags
 payments/docs/current
 node_modules/
 __pycache__/
+.vscode
