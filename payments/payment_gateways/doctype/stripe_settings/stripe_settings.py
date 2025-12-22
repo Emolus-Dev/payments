@@ -256,6 +256,10 @@ class StripeSettings(Document):
                         payment_method=self.stripe_payment_method.id,  # Especificar el método de pago
                         receipt_email=self.data.payer_email,  # se envia correo indicado en el payment request
                         confirm=True,
+                        automatic_payment_methods={
+                            "enabled": True,
+                            "allow_redirects": "never",
+                        },
                     )
 
                     # Si el pago es OK
@@ -339,13 +343,17 @@ class StripeSettings(Document):
         else:
             redirect_url = "payment-failed"
 
-        if redirect_to and "?" in redirect_url:
-            redirect_url += "&" + urlencode({"redirect_to": redirect_to})
-        else:
-            redirect_url += "?" + urlencode({"redirect_to": redirect_to})
+        if redirect_to:
+            if "?" in redirect_url:
+                redirect_url += "&" + urlencode({"redirect_to": redirect_to})
+            else:
+                redirect_url += "?" + urlencode({"redirect_to": redirect_to})
 
         if redirect_message:
-            redirect_url += "&" + urlencode({"redirect_message": redirect_message})
+            if "?" in redirect_url:
+                redirect_url += "&" + urlencode({"redirect_message": redirect_message})
+            else:
+                redirect_url += "?" + urlencode({"redirect_message": redirect_message})
 
         return {"redirect_to": redirect_url, "status": status}
 
@@ -483,6 +491,9 @@ class StripeSettings(Document):
 
             # Se hizo cuando el usuario marco que desea guardar el metodo de pago
             if self.charge.get("object") == "payment_intent":
+                # Obtener datos del cargo - compatible con API nueva y antigua
+                charge_data = self._get_charge_data_from_payment_intent()
+
                 new_res_log = frappe.get_doc(
                     {
                         "doctype": "PayGate Response Log",
@@ -494,26 +505,18 @@ class StripeSettings(Document):
                         "payment_stripe_id": self.charge.get("id"),
                         "amount": flt(self.charge.get("amount") / 100),
                         "amount_captured": flt(
-                            self.charge.get("charges")
-                            .get("data")[0]
-                            .get("amount_captured")
-                            / 100
+                            charge_data.get("amount_captured", 0) / 100
                         ),
                         "amount_refunded": flt(
-                            self.charge.get("charges")
-                            .get("data")[0]
-                            .get("amount_refunded")
-                            / 100
+                            charge_data.get("amount_refunded", 0) / 100
                         ),
                         "stripe_receipt_email": self.charge.get("receipt_email"),
-                        # "stripe_receipt_number": self.charge.get("receipt_number"),
-                        "stripe_currency": self.charge.get("charges")
-                        .get("data")[0]
-                        .get("currency")
-                        .upper(),
-                        "stripe_receipt_url": self.charge.get("charges")
-                        .get("data")[0]
-                        .get("receipt_url", "/stripe/payment-ok"),
+                        "stripe_currency": charge_data.get(
+                            "currency", self.charge.get("currency", "")
+                        ).upper(),
+                        "stripe_receipt_url": charge_data.get(
+                            "receipt_url", "/stripe/payment-ok"
+                        ),
                         "stripe_response": json.dumps(
                             self.charge, indent=2, default=str
                         ),
@@ -522,24 +525,10 @@ class StripeSettings(Document):
                 new_res_log.insert(ignore_permissions=True)
 
                 if self.charge.get("status") == "succeeded":
-                    self.redirect_url = (
-                        self.charge.get("charges")
-                        .get("data")[0]
-                        .get("receipt_url", "/stripe/payment-ok")
-                    )
-
-                    self.set_url_sucess_payment(
-                        self.charge.get("charges")
-                        .get("data")[0]
-                        .get("receipt_url", "/stripe/payment-ok")
-                    )
+                    receipt_url = charge_data.get("receipt_url", "/stripe/payment-ok")
+                    self.redirect_url = receipt_url
+                    self.set_url_sucess_payment(receipt_url)
                     self.set_payment_request_as_paid(self.payment_req_ref)
-
-                    return (
-                        self.charge.get("charges")
-                        .get("data")[0]
-                        .get("receipt_url", "/stripe/payment-ok")
-                    )
 
             # Se hizo cuando el usuario no marco que desea guardar el metodo de pago
             if self.charge.get("object") == "charge":
@@ -606,19 +595,55 @@ class StripeSettings(Document):
                 message=frappe.get_traceback(),
             )
 
+    def _get_charge_data_from_payment_intent(self) -> dict:
+        """
+        Obtiene los datos del cargo desde un PaymentIntent.
+        Compatible con API antigua (charges.data[0]) y nueva (latest_charge).
+        """
+        try:
+            # API antigua: charges está incluido en el PaymentIntent
+            charges = self.charge.get("charges")
+            if charges and charges.get("data"):
+                return charges.get("data")[0]
+
+            # API nueva: solo viene latest_charge (ID del cargo)
+            latest_charge_id = self.charge.get("latest_charge")
+            if latest_charge_id:
+                # Si es un string (ID), obtener el cargo completo
+                if isinstance(latest_charge_id, str):
+                    return stripe.Charge.retrieve(latest_charge_id)
+                # Si ya es un objeto, usarlo directamente
+                return latest_charge_id
+
+            # Fallback: retornar datos básicos del PaymentIntent
+            return {
+                "amount_captured": self.charge.get("amount", 0),
+                "amount_refunded": 0,
+                "currency": self.charge.get("currency", ""),
+                "receipt_url": "/stripe/payment-ok",
+            }
+
+        except Exception:
+            frappe.log_error(
+                title="Error getting charge data from PaymentIntent",
+                message=frappe.get_traceback(),
+            )
+            return {
+                "amount_captured": self.charge.get("amount", 0),
+                "amount_refunded": 0,
+                "currency": self.charge.get("currency", ""),
+                "receipt_url": "/stripe/payment-ok",
+            }
+
     def set_payment_request_as_paid(self, payment_request):
         try:
             if not payment_request:
                 return
 
-            owner_payment_request = frappe.db.get_value(
-                "Payment Request", payment_request, "owner"
-            )
-            if owner_payment_request:
-                frappe.set_user(owner_payment_request)
-
+            frappe.flags.ignore_permissions = True
             pay_req = frappe.get_doc("Payment Request", payment_request)
             pay_req.set_as_paid()
+            frappe.flags.ignore_permissions = False
 
         except Exception:
             frappe.log_error(
