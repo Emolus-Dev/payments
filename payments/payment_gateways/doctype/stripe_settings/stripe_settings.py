@@ -434,30 +434,32 @@ class StripeSettings(Document):
                 )
 
                 # Registramos la tarjeta en el ERP para futuros usos
-                frappe.get_doc({
-                    "doctype": "PayGate Card",
-                    "customer": pk_customer,
-                    "token_temp": "",
-                    "is_default": 1,
-                    "email": exists_customer_paygate.custom_paygate_user,
-                    "gateway": "Stripe",
-                    "process_data": 0,
-                    "stripe_customer_id": self.stripe_customer.id,
-                    "stripe_payment_id": self.stripe_payment_method.id,
-                    "card_number": "*" * 12
-                    + str(self.result_stripe.get("token").get("card").get("last4")),
-                    "expiration_month": self.result_stripe.get("token")
-                    .get("card")
-                    .get("exp_month"),
-                    "expiration_year": self.result_stripe.get("token")
-                    .get("card")
-                    .get("exp_year"),
-                    "card_brand": self.result_stripe.get("token")
-                    .get("card")
-                    .get("brand"),
-                    "gateway_dt": "Stripe Settings",
-                    "gateway_setting_name": self.name,  # Es indispensable guardar el nombre de la config usada
-                }).insert(ignore_permissions=True)
+                frappe.get_doc(
+                    {
+                        "doctype": "PayGate Card",
+                        "customer": pk_customer,
+                        "token_temp": "",
+                        "is_default": 1,
+                        "email": exists_customer_paygate.custom_paygate_user,
+                        "gateway": "Stripe",
+                        "process_data": 0,
+                        "stripe_customer_id": self.stripe_customer.id,
+                        "stripe_payment_id": self.stripe_payment_method.id,
+                        "card_number": "*" * 12
+                        + str(self.result_stripe.get("token").get("card").get("last4")),
+                        "expiration_month": self.result_stripe.get("token")
+                        .get("card")
+                        .get("exp_month"),
+                        "expiration_year": self.result_stripe.get("token")
+                        .get("card")
+                        .get("exp_year"),
+                        "card_brand": self.result_stripe.get("token")
+                        .get("card")
+                        .get("brand"),
+                        "gateway_dt": "Stripe Settings",
+                        "gateway_setting_name": self.name,  # Es indispensable guardar el nombre de la config usada
+                    }
+                ).insert(ignore_permissions=True)
 
             else:
                 frappe.log_error(
@@ -481,34 +483,42 @@ class StripeSettings(Document):
 
             # Se hizo cuando el usuario marco que desea guardar el metodo de pago
             if self.charge.get("object") == "payment_intent":
-                new_res_log = frappe.get_doc({
-                    "doctype": "PayGate Response Log",
-                    "gateway": "Stripe",
-                    "ref_to_payment_request": self.payment_req_ref or "",
-                    "payment_stripe_is_paid": 1
-                    if self.charge.get("status") == "succeeded"
-                    else 0,
-                    "payment_stripe_id": self.charge.get("id"),
-                    "amount": flt(self.charge.get("amount") / 100),
-                    "amount_captured": flt(
-                        self.charge.get("charges").get("data")[0].get("amount_captured")
-                        / 100
-                    ),
-                    "amount_refunded": flt(
-                        self.charge.get("charges").get("data")[0].get("amount_refunded")
-                        / 100
-                    ),
-                    "stripe_receipt_email": self.charge.get("receipt_email"),
-                    # "stripe_receipt_number": self.charge.get("receipt_number"),
-                    "stripe_currency": self.charge.get("charges")
-                    .get("data")[0]
-                    .get("currency")
-                    .upper(),
-                    "stripe_receipt_url": self.charge.get("charges")
-                    .get("data")[0]
-                    .get("receipt_url", "/stripe/payment-ok"),
-                    "stripe_response": json.dumps(self.charge, indent=2, default=str),
-                })
+                new_res_log = frappe.get_doc(
+                    {
+                        "doctype": "PayGate Response Log",
+                        "gateway": "Stripe",
+                        "ref_to_payment_request": self.payment_req_ref or "",
+                        "payment_stripe_is_paid": 1
+                        if self.charge.get("status") == "succeeded"
+                        else 0,
+                        "payment_stripe_id": self.charge.get("id"),
+                        "amount": flt(self.charge.get("amount") / 100),
+                        "amount_captured": flt(
+                            self.charge.get("charges")
+                            .get("data")[0]
+                            .get("amount_captured")
+                            / 100
+                        ),
+                        "amount_refunded": flt(
+                            self.charge.get("charges")
+                            .get("data")[0]
+                            .get("amount_refunded")
+                            / 100
+                        ),
+                        "stripe_receipt_email": self.charge.get("receipt_email"),
+                        # "stripe_receipt_number": self.charge.get("receipt_number"),
+                        "stripe_currency": self.charge.get("charges")
+                        .get("data")[0]
+                        .get("currency")
+                        .upper(),
+                        "stripe_receipt_url": self.charge.get("charges")
+                        .get("data")[0]
+                        .get("receipt_url", "/stripe/payment-ok"),
+                        "stripe_response": json.dumps(
+                            self.charge, indent=2, default=str
+                        ),
+                    }
+                )
                 new_res_log.insert(ignore_permissions=True)
 
                 if self.charge.get("status") == "succeeded":
@@ -533,23 +543,31 @@ class StripeSettings(Document):
 
             # Se hizo cuando el usuario no marco que desea guardar el metodo de pago
             if self.charge.get("object") == "charge":
-                new_res_log = frappe.get_doc({
-                    "doctype": "PayGate Response Log",
-                    "gateway": "Stripe",
-                    "ref_to_payment_request": self.payment_req_ref or "",
-                    "payment_stripe_is_paid": self.charge.get("captured"),
-                    "payment_stripe_id": self.charge.get("id"),
-                    "amount": flt(self.charge.get("amount") / 100),
-                    "amount_captured": flt(self.charge.get("amount_captured") / 100),
-                    "amount_refunded": flt(self.charge.get("amount_refunded") / 100),
-                    "stripe_receipt_email": self.charge.get("receipt_email"),
-                    "stripe_receipt_number": self.charge.get("receipt_number"),
-                    "stripe_currency": self.charge.get("currency").upper(),
-                    "stripe_receipt_url": self.charge.get(
-                        "receipt_url", "/stripe/payment-ok"
-                    ),
-                    "stripe_response": json.dumps(self.charge, indent=2, default=str),
-                })
+                new_res_log = frappe.get_doc(
+                    {
+                        "doctype": "PayGate Response Log",
+                        "gateway": "Stripe",
+                        "ref_to_payment_request": self.payment_req_ref or "",
+                        "payment_stripe_is_paid": self.charge.get("captured"),
+                        "payment_stripe_id": self.charge.get("id"),
+                        "amount": flt(self.charge.get("amount") / 100),
+                        "amount_captured": flt(
+                            self.charge.get("amount_captured") / 100
+                        ),
+                        "amount_refunded": flt(
+                            self.charge.get("amount_refunded") / 100
+                        ),
+                        "stripe_receipt_email": self.charge.get("receipt_email"),
+                        "stripe_receipt_number": self.charge.get("receipt_number"),
+                        "stripe_currency": self.charge.get("currency").upper(),
+                        "stripe_receipt_url": self.charge.get(
+                            "receipt_url", "/stripe/payment-ok"
+                        ),
+                        "stripe_response": json.dumps(
+                            self.charge, indent=2, default=str
+                        ),
+                    }
+                )
                 new_res_log.insert(ignore_permissions=True)
 
                 if self.charge.get("captured"):
